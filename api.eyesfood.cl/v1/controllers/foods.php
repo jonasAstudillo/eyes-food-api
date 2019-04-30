@@ -52,6 +52,8 @@ class foods
                 }
                 else if($urlSegments[0] == "complaint"){
                     return self::retrieveComplaintFoods();
+                }else if($urlSegments[0] == "create"){
+                    return self::retrieveFoods();
                 }
                 else{
                     return self::retrieveFoods($urlSegments[0]);
@@ -82,6 +84,9 @@ class foods
                 case "new":
                     return self::saveNewFood();
                     break;
+                case "create":
+                    return self::saveFood();
+                    break;
             }
             
         }
@@ -104,30 +109,18 @@ class foods
             $pdo = MysqlManager::get()->getDb();
 
             if (!$codigoBarras) {
-                $comando = "SELECT codigoBarras, nombre, marcas.nombreMarca, idUsuario, "
-                        . "idPeligroAlimento, peligroAlimento, productos.producto, "
-                        . "unidades_medida.unidadMedida, contenidoNeto, energia, proteinas, "
-                        . "grasaTotal, grasaSaturada, grasaTrans, colesterol, grasaMono, grasaPoli, "
-                        . "hidratosCarbono, azucaresTotales, fibra, sodio, porcion, porcionGramos, "
-                        . "fechaSubida, indiceGlicemico, fotoOficial FROM alimentos "
-                        . "LEFT JOIN marcas ON alimentos.codigoMarca = marcas.codigoMarca "
-                        . "LEFT JOIN productos ON alimentos.idProducto = productos.idProducto "
-                        . "LEFT JOIN unidades_medida ON alimentos.idUnidadMedida = unidades_medida.idUnidadMedida";
+                $comando = "SELECT codigoBarras,idUsuario, "
+                        . "idPeligroAlimento, peligroAlimento, "
+                        . "fechaSubida, indiceGlicemico FROM alimentos ";
 
                 // Preparar sentencia
                 $sentencia = $pdo->prepare($comando);
                 //$sentencia = ConexionBD::obtenerInstancia()->obtenerBD()->prepare($comando);
 
             } else {
-                $comando = "SELECT codigoBarras, nombre, marcas.nombreMarca, idUsuario, "
-                        . "idPeligroAlimento, peligroAlimento, productos.producto, "
-                        . "unidades_medida.unidadMedida, contenidoNeto, energia, proteinas, "
-                        . "grasaTotal, grasaSaturada, grasaTrans, colesterol, grasaMono, grasaPoli, "
-                        . "hidratosCarbono, azucaresTotales, fibra, sodio, porcion, porcionGramos, "
-                        . "fechaSubida, indiceGlicemico, fotoOficial FROM alimentos "
-                        . "LEFT JOIN marcas ON alimentos.codigoMarca = marcas.codigoMarca "
-                        . "LEFT JOIN productos ON alimentos.idProducto = productos.idProducto "
-                        . "LEFT JOIN unidades_medida ON alimentos.idUnidadMedida = unidades_medida.idUnidadMedida "
+                $comando = "SELECT codigoBarras,idUsuario, "
+                        . "idPeligroAlimento, peligroAlimento,"
+                        . "fechaSubida, indiceGlicemico FROM alimentos "
                         . "WHERE codigoBarras =?";
 
                 // Preparar sentencia
@@ -352,6 +345,41 @@ class foods
         }
     }
     
+    private static function saveFood() {
+        // Obtener parámetros de la petición
+        $parameters = file_get_contents('php://input');
+        $decodedParameters = json_decode($parameters, true);
+
+        // Controlar posible error de parsing JSON
+        if (json_last_error() != JSON_ERROR_NONE) {
+            $internalServerError = new ApiException(
+                500,
+                0,
+                "Error interno en el servidor. Contacte al administrador",
+                "http://localhost",
+                "Error de parsing JSON. Causa: " . json_last_error_msg());
+            throw $internalServerError;
+        }
+
+        // Verificar integridad de datos
+        // TODO: Implementar restricciones de datos adicionales
+
+        // Insertar usuario
+        $dbResult = self::insertFood($decodedParameters);
+
+        // Procesar resultado de la inserción
+        if ($dbResult) {
+            return ["status" => 201, "message" => "Alimento registrado"];
+        } else {
+            throw new ApiException(
+                500,
+                0,
+                "Error del servidor",
+                "http://localhost",
+                "Error en la base de datos al ejecutar la inserción del usuario.");
+        }
+    }
+    
     private static function insertNewFood($decodedParameters) {
         //Extraer datos del usuario
         $idUsuario = $decodedParameters["idUsuario"];
@@ -409,6 +437,36 @@ class foods
             $preparedStament->bindParam(19, $fibra);
             $preparedStament->bindParam(20, $sodio);
             $preparedStament->bindParam(21, $ingredientes);
+
+            // Ejecutar sentencia
+            return $preparedStament->execute();
+
+        } catch (PDOException $e) {
+            throw new ApiException(
+                500,
+                0,
+                "Error de base de datos en el servidor",
+                "http://localhost",
+                "Ocurrió el siguiente error al intentar insertar el usuario: " . $e->getMessage());
+        }
+    }
+    
+    private static function insertFood($decodedParameters) {
+        //Extraer datos del usuario
+        $idUsuario = $decodedParameters["idUsuario"];
+        $codigoBarras = $decodedParameters["codigoBarras"];
+
+        try {
+            $pdo = MysqlManager::get()->getDb();
+
+            // Componer sentencia INSERT
+            $sentence = "INSERT INTO alimentos (idUsuario, codigoBarras)" .
+                " VALUES (?,?)";
+
+            // Preparar sentencia
+            $preparedStament = $pdo->prepare($sentence);
+            $preparedStament->bindParam(1, $idUsuario);
+            $preparedStament->bindParam(2, $codigoBarras);
 
             // Ejecutar sentencia
             return $preparedStament->execute();

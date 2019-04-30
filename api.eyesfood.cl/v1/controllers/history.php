@@ -81,7 +81,9 @@ class history
                 return self::saveFoodNoScan();
             }
             else{
-                return self::saveFood();
+                if ($urlSegments[0] == "create") {
+                    return self::saveFood();
+                }
             }
         }
     }
@@ -175,8 +177,9 @@ class history
             $pdo = MysqlManager::get()->getDb();
 
             if (!$codigoBarras) {
-                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras, alimentos.nombre,"
-                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo, alimentos.fotoOficial,"
+                //Se saca foto y nombre para obtenerlas desde la BD de OpenFood 
+                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras,"
+                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo,"
                         . " meGusta"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
@@ -201,8 +204,8 @@ class history
             }
 
             } else {
-                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras, alimentos.nombre,"
-                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo, alimentos.fotoOficial,"
+                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras,"
+                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo,"
                         . " meGusta, escaneo"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
@@ -255,21 +258,21 @@ class history
 
         // Verificar integridad de datos
         // TODO: Implementar restricciones de datos adicionales
-        if (!isset($decodedParameters["idUsuario"]) ||
-            !isset($decodedParameters["codigoBarras"])/*||
-            !isset($decodedParameters["fechanacimiento"]) ||
-            !isset($decodedParameters["sexo"]) ||
-            !isset($decodedParameters["estatura"]) ||
-            !isset($decodedParameters["nacionalidad"])*/
-        ) {
-            // TODO: Crear una excepción individual por cada causa anómala
-            throw new ApiException(
-                400,
-                0,
-                "Verifique los datos del usuario tengan formato correcto",
-                "http://localhost",
-                "Uno de los atributos del usuario no está definido en los parámetros");
-        }
+//        if (!isset($decodedParameters["idUsuario"]) ||
+//            !isset($decodedParameters["codigoBarras"])/*||
+//            !isset($decodedParameters["fechanacimiento"]) ||
+//            !isset($decodedParameters["sexo"]) ||
+//            !isset($decodedParameters["estatura"]) ||
+//            !isset($decodedParameters["nacionalidad"])*/
+//        ) {
+//            // TODO: Crear una excepción individual por cada causa anómala
+//            throw new ApiException(
+//                400,
+//                0,
+//                "Verifique los datos del usuario tengan formato correcto",
+//                "http://localhost",
+//                "Uno de los atributos del usuario no está definido en los parámetros");
+//        }
 
         // Insertar usuario
         $dbResult = self::insertFood($decodedParameters);
@@ -317,109 +320,108 @@ class history
         }
     }
     
-    private static function modifyHistory($userId, $barcode)
-{
-    try {
-        $pdo = MysqlManager::get()->getDb();
+    private static function modifyHistory($userId, $barcode) {
+        try {
+            $pdo = MysqlManager::get()->getDb();
 
-        // Componer sentencia UPDATE
-        $sentence = "UPDATE historial_escaneo "
-                . "SET fechaEscaneo=CURRENT_TIMESTAMP "
-                . "WHERE idUsuario=? AND codigoBarras = ?";
+            // Componer sentencia UPDATE
+            $sentence = "UPDATE historial_escaneo "
+                    . "SET fechaEscaneo=CURRENT_TIMESTAMP "
+                    . "WHERE idUsuario=? AND codigoBarras = ?";
 
-        // Preparar sentencia
-        $preparedStatement = $pdo->prepare($sentence);
-        
-        $preparedStatement->bindParam(1, $userId, PDO::PARAM_INT);
-        $preparedStatement->bindParam(2, $barcode, PDO::PARAM_INT);
+            // Preparar sentencia
+            $preparedStatement = $pdo->prepare($sentence);
 
-        // Ejecutar sentencia
-        if ($preparedStatement->execute()) {
+            $preparedStatement->bindParam(1, $userId, PDO::PARAM_INT);
+            $preparedStatement->bindParam(2, $barcode, PDO::PARAM_INT);
 
-            $rowCount = $preparedStatement->rowCount();
-            $dbResult = self::findShortFood($userId, $barcode);
+            // Ejecutar sentencia
+            if ($preparedStatement->execute()) {
 
-        // Procesar resultado de la consulta
-        // El de la derecha es la columna de la base de datos, case sensitive
-        if ($dbResult != NULL) {
-            return $dbResult;
-        } else {
-            throw new ApiException(
-                400,
-                0,
-                "Número de identificación o contraseña inválidos",
-                "http://localhost",
-                "Puede que no exista un usuario creado con el correo \"$userId\" o que la contraseña \"$password\" sea incorrecta."
-            );
-        }
+                $rowCount = $preparedStatement->rowCount();
+                $dbResult = self::findShortFood($userId, $barcode);
+
+            // Procesar resultado de la consulta
+            // El de la derecha es la columna de la base de datos, case sensitive
+            if ($dbResult != NULL) {
+                return $dbResult;
+            } else {
+                throw new ApiException(
+                    400,
+                    0,
+                    "Número de identificación o contraseña inválidos",
+                    "http://localhost",
+                    "Puede que no exista un usuario creado con el correo \"$userId\" o que la contraseña \"$password\" sea incorrecta."
+                );
             }
+                }
 
-        } catch (PDOException $e) {
-            throw new ApiException(
-                500,
-                0,
-                "Error de base de datos en el servidor",
-                "http://localhost",
-                "Ocurrió el siguiente error al intentar insertar el usuario: " . $e->getMessage());
-        }
-}
-
-private static function modifyHistoryLike($userId, $barcode, $like)
-{
-    try {
-        $pdo = MysqlManager::get()->getDb();
-
-        // Componer sentencia UPDATE
-        $sentence = "UPDATE historial_escaneo "
-                . "SET meGusta=? "
-                . "WHERE idUsuario=? AND codigoBarras = ?";
-
-        // Preparar sentencia
-        $preparedStatement = $pdo->prepare($sentence);
-        
-        $preparedStatement->bindParam(1, $like, PDO::PARAM_INT);
-        $preparedStatement->bindParam(2, $userId, PDO::PARAM_INT);
-        $preparedStatement->bindParam(3, $barcode, PDO::PARAM_INT);
-
-        // Ejecutar sentencia
-        if ($preparedStatement->execute()) {
-
-            $rowCount = $preparedStatement->rowCount();
-            $dbResult = self::findShortFood($userId, $barcode);
-
-        // Procesar resultado de la consulta
-        // El de la derecha es la columna de la base de datos, case sensitive
-        if ($dbResult != NULL) {
-            return $dbResult;
-        } else {
-            throw new ApiException(
-                400,
-                0,
-                "Número de identificación o contraseña inválidos",
-                "http://localhost",
-                "Puede que no exista un usuario creado con el correo \"$userId\" o que la contraseña \"$password\" sea incorrecta."
-            );
-        }
+            } catch (PDOException $e) {
+                throw new ApiException(
+                    500,
+                    0,
+                    "Error de base de datos en el servidor",
+                    "http://localhost",
+                    "Ocurrió el siguiente error al intentar insertar el usuario: " . $e->getMessage());
             }
+    }
 
-        } catch (PDOException $e) {
-            throw new ApiException(
-                500,
-                0,
-                "Error de base de datos en el servidor",
-                "http://localhost",
-                "Ocurrió el siguiente error al intentar insertar el usuario: " . $e->getMessage());
-        }
-}
+    private static function modifyHistoryLike($userId, $barcode, $like)
+    {
+        try {
+            $pdo = MysqlManager::get()->getDb();
 
-private static function findShortFood($idUsuario, $codigoBarras) {
+            // Componer sentencia UPDATE
+            $sentence = "UPDATE historial_escaneo "
+                    . "SET meGusta=? "
+                    . "WHERE idUsuario=? AND codigoBarras = ?";
+
+            // Preparar sentencia
+            $preparedStatement = $pdo->prepare($sentence);
+
+            $preparedStatement->bindParam(1, $like, PDO::PARAM_INT);
+            $preparedStatement->bindParam(2, $userId, PDO::PARAM_INT);
+            $preparedStatement->bindParam(3, $barcode, PDO::PARAM_INT);
+
+            // Ejecutar sentencia
+            if ($preparedStatement->execute()) {
+
+                $rowCount = $preparedStatement->rowCount();
+                $dbResult = self::findShortFood($userId, $barcode);
+
+            // Procesar resultado de la consulta
+            // El de la derecha es la columna de la base de datos, case sensitive
+            if ($dbResult != NULL) {
+                return $dbResult;
+            } else {
+                throw new ApiException(
+                    400,
+                    0,
+                    "Número de identificación o contraseña inválidos",
+                    "http://localhost",
+                    "Puede que no exista un usuario creado con el correo \"$userId\" o que la contraseña \"$password\" sea incorrecta."
+                );
+            }
+                }
+
+            } catch (PDOException $e) {
+                throw new ApiException(
+                    500,
+                    0,
+                    "Error de base de datos en el servidor",
+                    "http://localhost",
+                    "Ocurrió el siguiente error al intentar insertar el usuario: " . $e->getMessage());
+            }
+    }
+
+    private static function findShortFood($idUsuario, $codigoBarras) {
         
         try {
             $pdo = MysqlManager::get()->getDb();
 
             // Componer sentencia SELECT
-            $sentence = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras, alimentos.nombre,"
-                        . " alimentos.peligroAlimento, fechaEscaneo, alimentos.fotoOficial,"
+            $sentence = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras,"
+                        . " alimentos.peligroAlimento, fechaEscaneo,"
                         . " meGusta"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
@@ -641,7 +643,7 @@ private static function findShortFood($idUsuario, $codigoBarras) {
     }
     
     private static function modifyHistoryScan($userId, $barcode)
-{
+    {
     try {
         $pdo = MysqlManager::get()->getDb();
 
@@ -684,15 +686,15 @@ private static function findShortFood($idUsuario, $codigoBarras) {
                 "http://localhost",
                 "Ocurrió el siguiente error al intentar insertar el usuario: " . $e->getMessage());
         }
-}
+    }
 
-private static function retrieveHistoryUploads($userId)
+    private static function retrieveHistoryUploads($userId)
     {
         try {
             $pdo = MysqlManager::get()->getDb();
 
-                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras, alimentos.nombre,"
-                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo, alimentos.fotoOficial,"
+                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras"
+                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo,"
                         . " meGusta"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
@@ -731,8 +733,8 @@ private static function retrieveHistoryUploads($userId)
         try {
             $pdo = MysqlManager::get()->getDb();
 
-                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras, alimentos.nombre,"
-                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo, alimentos.fotoOficial,"
+                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras,"
+                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo,"
                         . " meGusta"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
@@ -771,8 +773,8 @@ private static function retrieveHistoryUploads($userId)
         try {
             $pdo = MysqlManager::get()->getDb();
 
-                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras, alimentos.nombre,"
-                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo, alimentos.fotoOficial,"
+                $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras,"
+                        . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo,"
                         . " meGusta"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
