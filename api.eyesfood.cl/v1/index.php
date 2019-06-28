@@ -3,14 +3,12 @@
 //Añadir el controlador de cada recurso
 require 'controllers/users.php';
 require 'controllers/foods.php';
-require 'controllers/additives.php';
 require 'controllers/history.php';
 require 'controllers/search.php';
 require 'controllers/images.php';
-require 'controllers/comments.php';
 require 'controllers/experts.php';
 require 'controllers/help.php';
-require 'controllers/measures.php';
+require 'controllers/stores.php';
 require 'views/XmlView.php';
 require 'views/JsonView.php';
 require 'utils/ApiException.php';
@@ -47,7 +45,7 @@ if (isset($_GET['PATH_INFO'])) {
 
 // Obtener recurso
 $resource = array_shift($urlSegments);
-$apiResources = array('users', 'foods', 'additives', 'history', 'search', 'images', 'comments', 'experts', 'help', 'measures');
+$apiResources = array('users', 'foods', 'additives', 'history', 'search', 'images', 'comments', 'experts', 'help', 'measures', 'stores');
 
 // Comprobar si existe el recurso
 if (!in_array($resource, $apiResources)) {

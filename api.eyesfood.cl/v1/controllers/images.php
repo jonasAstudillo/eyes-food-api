@@ -34,7 +34,7 @@ class images{
             );
         }
         
-        return self::uploadImage($urlSegments[0], $urlSegments[1]);
+        return self::uploadImage($urlSegments[0], $urlSegments[1], $urlSegments[2], $urlSegments[3]);
     }
     
     public static function put($urlSegments){
@@ -45,7 +45,19 @@ class images{
 
     }
 
-    public static function uploadImage($idUsuario, $codigoBarras){
+    public static function uploadImage($idUsuario, $codigoBarras, $tipoImagen, $alimento){
+        $dir = UPLOAD_DIR;
+        switch ($tipoImagen) {
+            case "0":
+                $dir = $dir.$alimento."/front/";
+                break;
+            case "1":
+                $dir = $dir.$alimento."/ingredients/";
+                break;
+            case "2":
+                $dir = $dir.$alimento."/nutrition/";
+                break;
+        }
         if (!empty($_FILES["myFile"])) {
         $myFile = $_FILES["myFile"];
 
@@ -58,82 +70,91 @@ class images{
         //$name = preg_replace("/[^A-Z0-9._-]/i", "_", $myFile["name"]);
         $parts = pathinfo($myFile["name"]);
         //Se guarda sin extensión para luego referenciarlo en el while
-        $tempName = $idUsuario . "-" . $codigoBarras;
-        $name = $idUsuario . "-" . $codigoBarras . "." . $parts["extension"];
+        $tempName = $codigoBarras;
+        $name = $codigoBarras . "." . $parts["extension"];
 
         // don't overwrite an existing file
         $i = 0;
-        while (file_exists(UPLOAD_DIR . $name)) {
+        while (file_exists($dir . $name)) {
             $i++;
             $name = $tempName . "(" . $i . ")" . "." . $parts["extension"];
         }
 
         // preserve file from temporary directory
         $success = move_uploaded_file($myFile["tmp_name"],
-            UPLOAD_DIR . $name);
+            $dir . $name);
         if (!$success) { 
             echo "Unable to save file.";
             exit;
         }
         else{
-            return self::insertImage($idUsuario,$codigoBarras,$name);
+            return self::insertImage($codigoBarras,$tipoImagen, $alimento);
         }
 
         // set proper permissions on the new file
-        chmod(UPLOAD_DIR . $name, 0644);
+        chmod($dir . $name, 0644);
     }
         
     }
     
-    public static function insertImage($idUsuario,$codigoBarras,$name){
+    public static function insertImage($codigoBarras,$tipoImagen, $alimento){
         try {
             $pdo = MysqlManager::get()->getDb();
-
-            // Componer sentencia INSERT
-            $sentence = "INSERT INTO fotos_alimentos (idUsuario, codigoBarras, ruta, autorizacion)" .
-                " VALUES (?,?,?,'0')";
-
-            // Preparar sentencia
-            $preparedStament = $pdo->prepare($sentence);
-            $preparedStament->bindParam(1, $idUsuario);
-            $preparedStament->bindParam(2, $codigoBarras);
-            $preparedStament->bindParam(3, $name);
-
-            // Ejecutar sentencia
-            if($preparedStament->execute()){
-                $dbResult = self::findImage($name);
-
-        // Procesar resultado de la consulta
-        // El de la derecha es la columna de la base de datos, case sensitive
-        if ($dbResult != NULL) {
-            return [
-                "status" => 200,
-                "idFotoAlimento" => $dbResult["idFotoAlimento"],
-                "idUsuario" => $dbResult["idUsuario"],
-                "codigoBarras" => $dbResult["codigoBarras"],
-                "autorizacion" => $dbResult["autorizacion"],
-                "ruta" => $dbResult["ruta"],
-                "date" => $dbResult["date"],
-            ];
-        } else {
-            throw new ApiException(
-                400,
-                0,
-                "Número de identificación o contraseña inválidos",
-                "http://localhost",
-                "Puede que no exista un usuario creado con el correo \"$userId\" o que la contraseña \"$password\" sea incorrecta."
-            );
-        }
+            $estado = 1;
+            $tabla;
+            switch ($tipoImagen){
+                case "0":
+                    $estado = "alimentoFront";
+                    break;
+                case "1":
+                    $estado = "alimentoIngr";
+                    break;
+                case "2":
+                    $estado = "alimentoNutr";
+                    break;
+            }
+            
+            switch ($alimento){
+                case "1":
+                    $tabla = "alimentos";
+                    break;
+                case "2":
+                    $tabla = "alimento_nuevo";
+                    break;
             }
 
-        } catch (PDOException $e) {
+            $sentence = "UPDATE ".$tabla
+               . " SET ".$estado." = '1' "
+               . "WHERE codigoBarras = ?";
+
+            $preparedStatement = $pdo->prepare($sentence);
+            $preparedStatement->bindParam(1, $codigoBarras, PDO::PARAM_INT);
+            
+            if ($preparedStatement->execute()) {
+                $rowCount = $preparedStatement->rowCount();
+                //$dbResult = self::retrieveFoods($barcode);
+
+//                if ($dbResult != NULL) {
+//                    return $dbResult;
+//                } else {
+//                    throw new ApiException(
+//                        400,
+//                        0,
+//                        "Número de identificación o contraseña inválidos",
+//                        "http://localhost",
+//                        "Puede que no exista un usuario creado con el correo \"$userId\" o que la contraseña \"$password\" sea incorrecta."
+//                    );
+//                }
+            }
+        }catch (PDOException $e) {
             throw new ApiException(
                 500,
                 0,
                 "Error de base de datos en el servidor",
                 "http://localhost",
                 "Ocurrió el siguiente error al intentar insertar el usuario: " . $e->getMessage());
-        }
+        }        
+
     }
     
     private static function findImage($name) {

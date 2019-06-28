@@ -8,7 +8,17 @@ require_once 'data/MysqlManager.php';
 class users {
 
     public static function get($urlSegments) {
-        
+        if (isset($urlSegments[0])) {
+            return self::retrieveUser($urlSegments[0]);
+        }else{
+            throw new ApiException(
+                400,
+                0,
+                "El recurso está mal referenciado",
+                "http://localhost",
+                "El recurso $_SERVER[REQUEST_URI] no esta sujeto a resultados"
+            );
+        }
     }
 
     public static function post($urlSegments) {
@@ -189,7 +199,8 @@ class users {
         //$nacionalidad = $decodedParameters["nacionalidad"];
 
         // Encriptar contraseña
-        $hashPassword = password_hash($password, PASSWORD_DEFAULT);
+        //$hashPassword = password_hash($password, PASSWORD_DEFAULT);
+        $hashPassword = sha1($password);
 
         // Generar token
         $token = uniqid(rand(), TRUE);
@@ -266,9 +277,13 @@ class users {
                 $userData = $preparedSentence->fetch(PDO::FETCH_ASSOC);
 
                 // Verificar contraseña
-                if (password_verify($password, $userData["hash_password"])) {
+                //if (password_verify($password, $userData["hash_password"])) {
+                    //return $userData;
+                //}
+                if (sha1($password)==$userData["hash_password"]){
                     return $userData;
-                } else {
+                } 
+                else {
                     return null;
                 }
 
@@ -336,6 +351,41 @@ class users {
             // Preparar sentencia
             $preparedSentence = $pdo->prepare($sentence);
             $preparedSentence->bindParam(1, $correo, PDO::PARAM_INT);
+
+            // Ejecutar sentencia
+            if ($preparedSentence->execute()) {
+                return $preparedSentence->fetch(PDO::FETCH_ASSOC);
+            } else {
+                throw new ApiException(
+                    500,
+                    0,
+                    "Error de base de datos en el servidor",
+                    "http://localhost",
+                    "Hubo un error ejecutando una sentencia SQL en la base de datos. Detalles:" . $pdo->errorInfo()[2]
+                );
+            }
+
+        } catch (PDOException $e) {
+            throw new ApiException(
+                500,
+                0,
+                "Error de base de datos en el servidor",
+                "http://localhost",
+                "Ocurrió el siguiente error al consultar el usuario: " . $e->getMessage());
+        }
+    }
+    
+    private static function retrieveUser($codigo) {
+        
+        try {
+            $pdo = MysqlManager::get()->getDb();
+
+            // Componer sentencia SELECT
+            $sentence = "SELECT * FROM usuarios WHERE idUsuario=?";
+
+            // Preparar sentencia
+            $preparedSentence = $pdo->prepare($sentence);
+            $preparedSentence->bindParam(1, $codigo, PDO::PARAM_INT);
 
             // Ejecutar sentencia
             if ($preparedSentence->execute()) {

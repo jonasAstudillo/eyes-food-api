@@ -180,7 +180,7 @@ class history
                 //Se saca foto y nombre para obtenerlas desde la BD de OpenFood 
                 $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras,"
                         . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo,"
-                        . " meGusta"
+                        . " meGusta, denuncia"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
                         . " WHERE historial_escaneo.idUsuario = ? AND (historial_escaneo.escaneo = '1' OR historial_escaneo.escaneo = '2')"
@@ -735,7 +735,7 @@ class history
 
                 $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras,"
                         . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo,"
-                        . " meGusta"
+                        . " meGusta, denuncia"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
                         . " WHERE historial_escaneo.idUsuario = ? AND historial_escaneo.meGusta = '1'"
@@ -775,7 +775,7 @@ class history
 
                 $comando = "SELECT historial_escaneo.idUsuario, historial_escaneo.codigoBarras,"
                         . " alimentos.idPeligroAlimento, alimentos.peligroAlimento, fechaEscaneo,"
-                        . " meGusta"
+                        . " meGusta, denuncia"
                         . " FROM historial_escaneo"
                         . " LEFT JOIN alimentos ON historial_escaneo.codigoBarras = alimentos.codigoBarras"
                         . " WHERE historial_escaneo.idUsuario = ? AND historial_escaneo.meGusta = '2'"
